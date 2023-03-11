@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: dev
+  BucketName:
+    Type: String
+    Default: cdadelasmotosdev
+  APIName:
+    Type: String
+    Default: API-cda
+  APIDesc:
+    Type: String
+    Default: Api disenada para los servicios de cda.
+Resources:
+################## FRONT & BASE ##################
+ BucketS3:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName : !Ref BucketName
+ APIGatewayRestAPI:
+    Type: 'AWS::ApiGateway::RestApi'
+    DependsOn:
+      - IAMRole 
+    Properties:
+      Name:
+        Ref: APIName
+      Description:
+        Ref: APIDesc
+      Parameters:
+        endpointConfigurationTypes: REGIONAL
+      BinaryMediaTypes:
+        - image/jpeg
+        - multipart/form-data
+ APIGatewayAuthorizer:
+    Type: 'AWS::ApiGateway::Authorizer'
+    Properties:
+      IdentitySource: method.request.header.Authorization
+      Name: CognitoAuthorizer
+      Type: COGNITO_USER_POOLS
+      ProviderARNs:
+        - 'arn:aws:cognito-idp:us-east-2:547749462802:userpool/us-east-2_SRXGxiTAT'
+      RestApiId: !Ref APIGatewayRestAPI
+    DependsOn:
+      - APIGatewayRestAPI
+################## SHARE ################
+ IAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: Policy_api-lambda
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogStream'
+                  - 'logs:CreateLogGroup'
+                  - 'logs:PutLogEvents'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:PutObjectTagging'
+                  - 's3:GetObjectTagging'
+                Resource: 
+                  - !Sub "arn:aws:s3:::${BucketName}/*"
+        - PolicyName: Policy_api-S3
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:  
+              - Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                  - 's3:PutObjectTagging'
+                Resource: 
+                  - !Sub "arn:aws:s3:::${BucketName}/*"
+                  - !Sub "arn:aws:s3:::${BucketName}"
+Outputs:
+  cdaEviroment:
+    Description: Enviroment of project.
+    Value: 'dev'
+    Export:
+      Name: cda-Enviroment 
+  ApiGwRestApiID:
+    Description: ApiRest of project.
+    Value: !Ref APIGatewayRestAPI
+    Export:
+      Name: cda-ApiGwRestApiID
+  ApiGwRestApiResource:
+    Description: ApiRest Resource of project.
+    Value:  !GetAtt 
+        - APIGatewayRestAPI
+        - RootResourceId
+    Export:
+      Name: cda-ApiGwRestApiResource
+  APIGatewayAuthorizer:
+    Description: Authorizer to all apis.
+    Value: !Ref APIGatewayAuthorizer
+    Export:
+      Name: cda-APIGwAuthorizer  
+  ApiResorceURL: 
+    Description: This is the URL of the resorce of Api.
+    Value: !Sub "https://${APIGatewayRestAPI}.execute-api.${AWS::Region}.amazonaws.com/${EnvironmentName}/"
+    Export:
+      Name: cda-ApiResorceURL
+  IAMRoleName:
+    Description: IAM Role Arn
+    Value: !GetAtt IAMRole.Arn
+    Export:
+      Name: cda-IAMRoleName

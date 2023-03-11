@@ -1,0 +1,3 @@
+[submodule "whatsApp"]
+	path = whatsApp
+	url = https://github.com/sebascardonac11/whatsApp.git
